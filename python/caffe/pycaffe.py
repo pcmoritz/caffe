@@ -170,6 +170,8 @@ def _Net_forward_all(self, blobs=None, **kwargs):
             all_outs[out] = all_outs[out][:-pad]
     return all_outs
 
+def _Net_rv_forward_backward(self):
+    self._rv_forward_backward()
 
 def _Net_forward_backward_all(self, blobs=None, diffs=None, **kwargs):
     """
@@ -263,6 +265,7 @@ Net.forward = _Net_forward
 Net.backward = _Net_backward
 Net.forward_all = _Net_forward_all
 Net.forward_backward_all = _Net_forward_backward_all
+Net.rv_forward_backward = _Net_rv_forward_backward
 Net.set_input_arrays = _Net_set_input_arrays
 Net._batch = _Net_batch
 Net.inputs = _Net_inputs

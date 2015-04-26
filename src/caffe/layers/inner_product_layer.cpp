@@ -119,6 +119,70 @@ void InnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+template <typename Dtype>
+void InnerProductLayer<Dtype>::RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+    vector<Blob<Dtype>*>* top) {
+  const Dtype* bottom_data = bottom[0]->cpu_data();
+  const Dtype* R_bottom_data = bottom[0]->cpu_inc_data();
+  Dtype* R_top_data = (*top)[0]->mutable_cpu_inc_data();
+  const Dtype* weight = this->blobs_[0]->cpu_data();
+  const Dtype* inc_weight = this->blobs_[0]->cpu_inc_data();
+  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, N_, K_, (Dtype)1.,
+      R_bottom_data, weight, (Dtype)0., R_top_data);
+  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, N_, K_, (Dtype)1.,
+      bottom_data, inc_weight, (Dtype)1., R_top_data);
+  if (bias_term_) {
+    const Dtype* inc_bias = this->blobs_[1]->cpu_inc_data();
+    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype)1.,
+        reinterpret_cast<const Dtype*>(bias_multiplier_.cpu_data()),
+        inc_bias, (Dtype)1., R_top_data);
+  }
+}
+
+template <typename Dtype>
+void InnerProductLayer<Dtype>::RGvBackward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom) {
+  const Dtype* R_top_diff = top[0]->cpu_inc_diff();
+  const Dtype* bottom_data = bottom[0]->cpu_data();
+  Dtype* R_weight_diff = this->blobs_[0]->mutable_cpu_inc_diff();
+  // Gradient with respect to weight
+  caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, N_, K_, M_, Dtype(1),
+      R_top_diff, bottom_data, Dtype(0), R_weight_diff);
+  if (bias_term_) {
+    Dtype* R_bias_diff = this->blobs_[1]->mutable_cpu_inc_diff();
+    // Gradient with respect to bias
+    caffe_cpu_gemv<Dtype>(CblasTrans, M_, N_, Dtype(1), R_top_diff,
+        reinterpret_cast<const Dtype*>(bias_multiplier_.cpu_data()),
+        Dtype(0), R_bias_diff);
+  }
+  if (propagate_down[0]) {
+    const Dtype* weight = this->blobs_[0]->cpu_data();
+    Dtype* R_bottom_diff = bottom[0]->mutable_cpu_inc_diff();
+    // Gradient with respect to bottom data
+    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, K_, N_, Dtype(1),
+        R_top_diff, weight, Dtype(0), R_bottom_diff);
+  }
+}
+
+template <typename Dtype>
+void InnerProductLayer<Dtype>::RHvBackward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom) {
+  const Dtype* top_diff = top[0]->cpu_diff();
+  const Dtype* R_bottom_data = bottom[0]->cpu_inc_data();
+  const Dtype* inc_weight = this->blobs_[0]->cpu_inc_data();
+  // RGvBackward handles 3/5 of the matrix multiplications
+  RGvBackward_cpu(top, propagate_down, bottom);
+  // Gradient with respect to weight
+  caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, N_, K_, M_,
+      Dtype(1), top_diff, R_bottom_data,
+      Dtype(1), this->blobs_[0]->mutable_cpu_inc_diff());
+  if (propagate_down[0]) {
+    // Gradient with respect to bottom data
+    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, K_, N_, (Dtype)1.,
+        top_diff, inc_weight, Dtype(1), bottom[0]->mutable_cpu_inc_diff());
+  }
+}
+
 #ifdef CPU_ONLY
 STUB_GPU(InnerProductLayer);
 #endif

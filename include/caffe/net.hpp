@@ -82,8 +82,31 @@ class Net {
     return loss;
   }
 
+  const vector<Blob<Dtype>*>& RvForwardPrefilled();
+  const vector<Blob<Dtype>*>& RvForward(const vector<Blob<Dtype>* > & bottom);
+
+  void RGvBackward();
+  void RHvBackward();
+  void RGvForwardBackward(const vector<Blob<Dtype>* > & bottom) {
+    RvForward(bottom);
+    RGvBackward();
+  }
+  void RHvForwardBackward(const vector<Blob<Dtype>* > & bottom) {
+    RvForward(bottom);
+    RHvBackward();
+  }
+
+  void RvForwardBackward();
+
   /// @brief Updates the network weights based on the diff values computed.
   void Update();
+
+  // Accumulate the (inc) diffs of any shared parameters into their owner's
+  // (inc) diff.
+  void AccumulateDiff();
+  void AccumulateIncDiff();
+
+
 
   /**
    * @brief For an already initialized net, implicitly copies (i.e., using no
@@ -228,6 +251,7 @@ class Net {
   /// pointers.
   vector<vector<Blob<Dtype>*> > bottom_vecs_;
   vector<vector<int> > bottom_id_vecs_;
+  vector<vector<bool> > bottom_diff_scales_;
   vector<vector<bool> > bottom_need_backward_;
   /// top_vecs stores the vectors containing the output for each layer
   vector<vector<Blob<Dtype>*> > top_vecs_;

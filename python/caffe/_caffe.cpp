@@ -206,6 +206,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("__init__", bp::make_constructor(&Net_Init_Load))
     .def("_forward", &Net<Dtype>::ForwardFromTo)
     .def("_backward", &Net<Dtype>::BackwardFromTo)
+    .def("_rv_forward_backward", &Net<Dtype>::RvForwardBackward)
     .def("reshape", &Net<Dtype>::Reshape)
     // The cast is to select a particular overload.
     .def("copy_from", static_cast<void (Net<Dtype>::*)(const string)>(
@@ -240,6 +241,10 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("data",     bp::make_function(&Blob<Dtype>::mutable_cpu_data,
           NdarrayCallPolicies()))
     .add_property("diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_diff,
+          NdarrayCallPolicies()))
+    .add_property("inc_data",     bp::make_function(&Blob<Dtype>::mutable_cpu_inc_data,
+          NdarrayCallPolicies()))
+    .add_property("inc_diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_inc_diff,
           NdarrayCallPolicies()));
 
   bp::class_<Layer<Dtype>, shared_ptr<PythonLayer<Dtype> >,

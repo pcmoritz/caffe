@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "caffe/common.hpp"
+#include "caffe/filler.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -69,6 +70,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   bottom_vecs_.resize(param.layer_size());
   top_vecs_.resize(param.layer_size());
   bottom_id_vecs_.resize(param.layer_size());
+  bottom_diff_scales_.resize(param.layer_size());
   param_id_vecs_.resize(param.layer_size());
   top_id_vecs_.resize(param.layer_size());
   bottom_need_backward_.resize(param.layer_size());
@@ -530,6 +532,49 @@ string Net<Dtype>::Forward(const string& input_blob_protos, Dtype* loss) {
 }
 
 template <typename Dtype>
+const vector<Blob<Dtype>*>& Net<Dtype>::RvForwardPrefilled() {
+  for (int i = 0; i < layers_.size(); ++i) {
+    if (layer_need_backward_[i]) {
+#if PRINTINFO
+      LOG(INFO) << "Doing RvForward in layer " << layer_names_[i];
+#endif
+      layers_[i]->RvForward(bottom_vecs_[i], &top_vecs_[i]);
+    } else if (top_vecs_[i].size()) {
+#if PRINTINFO
+      LOG(INFO) << "Skipping RvForward in layer " << layer_names_[i];
+#endif
+      FillerParameter zero_filler_param;
+      zero_filler_param.set_value(0);
+      ConstantFiller<Dtype> zero_filler(zero_filler_param);
+      for (int j = 0; j < top_vecs_[i].size(); ++j) {
+        zero_filler.FillInc(top_vecs_[i][j]);
+      }
+    }
+#if PRINTINFO
+    for (int j = 0; j < top_vecs_[i].size(); ++j) {
+      Dtype sum = caffe_cpu_asum(top_vecs_[i][j]->count(),
+          top_vecs_[i][j]->cpu_inc_data());
+      LOG(INFO) << "cpu_inc_data asum = " << sum;
+    }
+#endif
+  }
+  return net_output_blobs_;
+}
+
+template <typename Dtype>
+const vector<Blob<Dtype>*>& Net<Dtype>::RvForward(
+    const vector<Blob<Dtype>*> & bottom) {
+  return RvForwardPrefilled();
+}
+
+template <typename Dtype>
+void Net<Dtype>::RvForwardBackward() {
+  // Dummy vector R_bottom_vec.                                               
+  vector<Blob<Dtype>*> R_bottom_vec;
+  RHvForwardBackward(R_bottom_vec);
+}
+
+template <typename Dtype>
 void Net<Dtype>::BackwardFromTo(int start, int end) {
   CHECK_GE(end, 0);
   CHECK_LT(start, layers_.size());
@@ -645,6 +690,53 @@ void Net<Dtype>::ShareTrainedLayersWith(const Net* other) {
       target_blobs[j]->ShareData(*source_blob);
     }
   }
+}
+
+template <typename Dtype>
+void Net<Dtype>::RHvBackward() {
+  for (int i = layers_.size() - 1; i >= 0; --i) {
+    if (layer_need_backward_[i]) {
+      layers_[i]->AccumRHvBackward(top_vecs_[i], bottom_need_backward_[i],
+                                  bottom_diff_scales_[i], bottom_vecs_[i]);
+    }
+#if PRINTINFO
+    for (int j = 0; j < bottom_vecs_[i].size(); ++j) {
+      Dtype sum = caffe_cpu_asum(bottom_vecs_[i][j]->count(),
+          bottom_vecs_[i][j]->cpu_inc_diff());
+      LOG(INFO) << "bottom_need_backward_[" << j << "] = "
+          << bottom_need_backward_[i][j]
+          << "; cpu_inc_diff asum = " << sum;
+    }
+#endif
+  }
+  AccumulateIncDiff();
+}
+
+template <typename Dtype>
+void Net<Dtype>::RGvBackward() {
+  for (int i = layers_.size() - 1; i >= 0; --i) {
+    if (layer_need_backward_[i]) {
+#if PRINTINFO
+      LOG(INFO) << "Doing AccumRGvBackward in layer " << layer_names_[i];
+#endif
+      layers_[i]->AccumRGvBackward(top_vecs_[i], bottom_need_backward_[i],
+                                  bottom_diff_scales_[i], bottom_vecs_[i]);
+    } else {
+#if PRINTINFO
+      LOG(INFO) << "Skipping AccumRGvBackward in layer " << layer_names_[i];
+#endif
+    }
+#if PRINTINFO
+    for (int j = 0; j < bottom_vecs_[i].size(); ++j) {
+      Dtype sum = caffe_cpu_asum(bottom_vecs_[i][j]->count(),
+          bottom_vecs_[i][j]->cpu_inc_diff());
+      LOG(INFO) << "bottom_need_backward_[" << j << "] = "
+          << bottom_need_backward_[i][j]
+          << "; cpu_inc_diff asum = " << sum;
+    }
+#endif
+  }
+  AccumulateIncDiff();
 }
 
 template <typename Dtype>
@@ -774,6 +866,58 @@ void Net<Dtype>::Update() {
     if (param_owners_[i] >= 0) { continue; }
     if (debug_info_) { UpdateDebugInfo(i); }
     params_[i]->Update();
+  }
+}
+
+template <typename Dtype>
+void Net<Dtype>::AccumulateIncDiff() {
+  for (int i = 0; i < params_.size(); ++i) {
+    if (param_owners_[i] < 0) {
+      continue;
+    }
+    const int count = params_[i]->count();
+    const Dtype* this_inc_diff;
+    Dtype* owner_inc_diff;
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      this_inc_diff = params_[i]->cpu_inc_diff();
+      owner_inc_diff = params_[param_owners_[i]]->mutable_cpu_inc_diff();
+      caffe_add(count, this_inc_diff, owner_inc_diff, owner_inc_diff);
+      break;
+    // case Caffe::GPU:
+    //  this_inc_diff = params_[i]->gpu_inc_diff();
+    //  owner_inc_diff = params_[param_owners_[i]]->mutable_gpu_inc_diff();
+    //  caffe_gpu_axpy(count, Dtype(1), this_inc_diff, owner_inc_diff);
+    //  break;
+    default:
+      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+    }
+  }
+}
+
+template <typename Dtype>
+void Net<Dtype>::AccumulateDiff() {
+  for (int i = 0; i < params_.size(); ++i) {
+    if (param_owners_[i] < 0) {
+      continue;
+    }
+    const int count = params_[i]->count();
+    const Dtype* this_diff;
+    Dtype* owner_diff;
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      this_diff = params_[i]->cpu_diff();
+      owner_diff = params_[param_owners_[i]]->mutable_cpu_diff();
+      caffe_add(count, this_diff, owner_diff, owner_diff);
+      break;
+    // case Caffe::GPU:
+    //  this_diff = params_[i]->gpu_diff();
+    //  owner_diff = params_[param_owners_[i]]->mutable_gpu_diff();
+    //  caffe_gpu_axpy(count, Dtype(1), this_diff, owner_diff);
+    //  break;
+    default:
+      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+    }
   }
 }
 

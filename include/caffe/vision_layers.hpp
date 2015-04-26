@@ -76,7 +76,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   bool bias_term_;
   bool is_1x1_;
 
- private:
+ protected:
   // wrap im2col/col2im so we don't have to remember the (long) argument lists
   inline void conv_im2col_cpu(const Dtype* data, Dtype* col_buff) {
     im2col_cpu(data, conv_in_channels_, conv_in_height_, conv_in_width_,
@@ -172,8 +172,20 @@ class ConvolutionLayer : public BaseConvolutionLayer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  virtual void RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void RGvBackward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom);
+  virtual void RHvBackward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom);
+
+
   virtual inline bool reverse_dimensions() { return false; }
   virtual void compute_output_shape();
+
+  int M_;
+  int K_;
+  int N_;
 };
 
 /**

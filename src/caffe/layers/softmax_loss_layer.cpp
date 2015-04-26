@@ -119,6 +119,32 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+template <typename Dtype>
+void SoftmaxWithLossLayer<Dtype>::RvForward_cpu(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  softmax_bottom_vec_[0] = bottom[0];
+  softmax_layer_->RvForward(softmax_bottom_vec_, &softmax_top_vec_);
+}
+
+// TODO(jdonahue): add unit tests
+template <typename Dtype>
+void SoftmaxWithLossLayer<Dtype>::RGvBackward_cpu(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    vector<Blob<Dtype>*>& bottom) {
+  int count = bottom[0]->count();
+  int num = bottom[0]->num();
+  const Dtype* R_prob_data = prob_.cpu_inc_data();
+  Dtype* R_bottom_diff = bottom[0]->mutable_cpu_inc_diff();
+  caffe_cpu_axpby(count, Dtype(1) / num, R_prob_data, Dtype(0), R_bottom_diff);
+}
+
+template <typename Dtype>
+void SoftmaxWithLossLayer<Dtype>::RHvBackward_cpu(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    vector<Blob<Dtype>*>& bottom) {
+  RGvBackward_cpu(top, propagate_down, bottom);
+}
+
 #ifdef CPU_ONLY
 STUB_GPU(SoftmaxWithLossLayer);
 #endif

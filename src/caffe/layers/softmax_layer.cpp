@@ -86,6 +86,30 @@ void SoftmaxLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   caffe_mul(top[0]->count(), bottom_diff, top_data, bottom_diff);
 }
 
+// Compute R-forward pass:
+// R{y_i} = y_i * (R{x_i} - \sum_j(R{x_j} y_j))
+// TODO(jdonahue): add unit tests
+template <typename Dtype>
+void SoftmaxLayer<Dtype>::RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+    vector<Blob<Dtype>*>* top) {
+  int num = bottom[0]->num();
+  int dim = bottom[0]->count() / bottom[0]->num();
+  const Dtype* bottom_data = bottom[0]->cpu_data();
+  const Dtype* R_bottom_data = bottom[0]->cpu_inc_data();
+  const Dtype* top_data = (*top)[0]->cpu_data();
+  Dtype* R_top_data = (*top)[0]->mutable_cpu_inc_data();
+  for (int i = 0; i < num; ++i) {
+    int offset = i * dim;
+    Dtype inner_product = caffe_cpu_dot(dim,
+        top_data + offset, R_bottom_data + offset);
+    for (int j = 0; j < dim; ++j) {
+      int offset_j = offset + j;
+      R_top_data[offset_j] = top_data[offset_j] *
+          (R_bottom_data[offset_j] - inner_product);
+    }
+  }
+}
+
 
 #ifdef CPU_ONLY
 STUB_GPU(SoftmaxLayer);

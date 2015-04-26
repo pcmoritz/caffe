@@ -49,6 +49,34 @@ void SplitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+template <typename Dtype>
+void SplitLayer<Dtype>::RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top) {
+  for (int i = 0; i < top->size(); ++i) {
+    (*top)[i]->ShareIncData(*bottom[0]);
+  }
+}
+
+template <typename Dtype>
+void SplitLayer<Dtype>::RGvBackward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom) {
+  if (propagate_down[0]) {
+    bottom[0]->ShareIncDiff(*top[0]);
+    // Add remaining top blob diffs.
+    Dtype* bottom_diff = bottom[0]->mutable_cpu_inc_diff();
+    for (int i = 1; i < top.size(); ++i) {
+      const Dtype* top_diff = top[i]->cpu_inc_diff();
+      caffe_axpy(count_, Dtype(1.), top_diff, bottom_diff);
+    }
+  }
+}
+
+template <typename Dtype>
+void SplitLayer<Dtype>::RHvBackward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom) {
+  RGvBackward_cpu(top, propagate_down, bottom);
+}
+
 
 #ifdef CPU_ONLY
 STUB_GPU(SplitLayer);

@@ -33,6 +33,8 @@ void Blob<Dtype>::Reshape(const vector<int>& shape) {
     capacity_ = count_;
     data_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
     diff_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
+    inc_data_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
+    inc_diff_.reset(new SyncedMemory(capacity_ * sizeof(Dtype)));
   }
 }
 
@@ -97,6 +99,30 @@ const Dtype* Blob<Dtype>::gpu_diff() const {
 }
 
 template <typename Dtype>
+const Dtype* Blob<Dtype>::cpu_inc_data() const {
+  CHECK(inc_data_);
+  return static_cast<const Dtype*>(inc_data_->cpu_data());
+}
+
+template <typename Dtype>
+const Dtype* Blob<Dtype>::gpu_inc_data() const {
+  CHECK(inc_data_);
+  return static_cast<const Dtype*>(inc_data_->gpu_data());
+}
+
+template <typename Dtype>
+const Dtype* Blob<Dtype>::cpu_inc_diff() const {
+  CHECK(inc_diff_);
+  return static_cast<const Dtype*>(inc_diff_->cpu_data());
+}
+
+template <typename Dtype>
+const Dtype* Blob<Dtype>::gpu_inc_diff() const {
+  CHECK(inc_diff_);
+  return static_cast<const Dtype*>(inc_diff_->gpu_data());
+}
+
+template <typename Dtype>
 Dtype* Blob<Dtype>::mutable_cpu_data() {
   CHECK(data_);
   return static_cast<Dtype*>(data_->mutable_cpu_data());
@@ -121,6 +147,18 @@ Dtype* Blob<Dtype>::mutable_gpu_diff() {
 }
 
 template <typename Dtype>
+Dtype* Blob<Dtype>::mutable_cpu_inc_data() {
+  CHECK(inc_data_);
+  return static_cast<Dtype*>(inc_data_->mutable_cpu_data());
+}
+
+template <typename Dtype>
+Dtype* Blob<Dtype>::mutable_cpu_inc_diff() {
+  CHECK(inc_diff_);
+  return static_cast<Dtype*>(inc_diff_->mutable_cpu_data());
+}
+
+template <typename Dtype>
 void Blob<Dtype>::ShareData(const Blob& other) {
   CHECK_EQ(count_, other.count());
   data_ = other.data();
@@ -130,6 +168,16 @@ template <typename Dtype>
 void Blob<Dtype>::ShareDiff(const Blob& other) {
   CHECK_EQ(count_, other.count());
   diff_ = other.diff();
+}
+
+template <typename Dtype>
+void Blob<Dtype>::ShareIncData(const Blob& other) {
+  inc_data_ = other.inc_data();
+}
+
+template <typename Dtype>
+void Blob<Dtype>::ShareIncDiff(const Blob& other) {
+  inc_diff_ = other.inc_diff();
 }
 
 // The "update" method is used for parameter blobs in a Net, which are stored
