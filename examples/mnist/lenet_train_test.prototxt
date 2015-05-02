@@ -55,9 +55,20 @@ layer {
   }
 }
 layer {
+  name: "pool1"
+  type: "Pooling"
+  bottom: "conv1"
+  top: "pool1"
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+layer {
   name: "conv2"
   type: "Convolution"
-  bottom: "conv1"
+  bottom: "pool1"
   top: "conv2"
   param {
     lr_mult: 1
@@ -78,9 +89,20 @@ layer {
   }
 }
 layer {
+  name: "pool2"
+  type: "Pooling"
+  bottom: "conv2"
+  top: "pool2"
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+layer {
   name: "ip1"
   type: "InnerProduct"
-  bottom: "conv2"
+  bottom: "pool2"
   top: "ip1"
   param {
     lr_mult: 1
