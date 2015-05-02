@@ -1,5 +1,5 @@
 import numpy as np
-import skimage.io
+# import skimage.io
 from scipy.ndimage import zoom
 from skimage.transform import resize
 
