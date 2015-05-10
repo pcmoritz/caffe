@@ -1,36 +1,17 @@
 name: "CIFAR10_full"
 layer {
   name: "cifar"
-  type: "Data"
+  type: "MemoryData"
   top: "data"
   top: "label"
   include {
     phase: TRAIN
   }
-  transform_param {
-    mean_file: "examples/cifar10/mean.binaryproto"
-  }
-  data_param {
-    source: "examples/cifar10/cifar10_train_lmdb"
+  memory_data_param {
+    channels: 3
+    height: 32
+    width: 32
     batch_size: 100
-    backend: LMDB
-  }
-}
-layer {
-  name: "cifar"
-  type: "Data"
-  top: "data"
-  top: "label"
-  include {
-    phase: TEST
-  }
-  transform_param {
-    mean_file: "examples/cifar10/mean.binaryproto"
-  }
-  data_param {
-    source: "examples/cifar10/cifar10_test_lmdb"
-    batch_size: 100
-    backend: LMDB
   }
 }
 layer {
