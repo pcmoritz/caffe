@@ -344,11 +344,33 @@ class LRNLayer : public Layer<Dtype> {
   virtual void WithinChannelForward(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
   virtual void CrossChannelBackward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+    const Dtype* top_diff, const Dtype* top_data, const Dtype* bottom_data,
+    const Dtype* scale_data, Dtype* bottom_diff);
   virtual void CrossChannelBackward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
   virtual void WithinChannelBackward(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  virtual void RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+    vector<Blob<Dtype>*>* top);
+
+  virtual void CrossChannelRvForward_cpu(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top);
+
+  virtual void WithinChannelRvForward(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top);
+
+  virtual void RGvBackward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom);
+
+  virtual void WithinChannelRGvBackward(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    vector<Blob<Dtype>*>& bottom);
+
+  virtual void WithinChannelRHvBackward(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    vector<Blob<Dtype>*>& bottom);
+
 
   int size_;
   int pre_pad_;

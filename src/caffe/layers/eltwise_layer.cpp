@@ -151,6 +151,32 @@ void EltwiseLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+template <typename Dtype>
+void EltwiseLayer<Dtype>::RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+    vector<Blob<Dtype>*>* top) {
+  const Dtype* top_data = (*top)[0]->cpu_data();
+  Dtype* R_top_data = (*top)[0]->mutable_cpu_inc_data();
+  for(int i = 0; i < (*top)[0]->count(); i++) {
+    R_top_data[i] = 0.0;
+  }
+  // const int count = bottom[0]->count();
+  // LOG(INFO) << " bottom[0] count " << count;
+  // LOG(INFO) << " bottom size " << bottom.size();
+  for (int i = 0; i < bottom.size(); i++) {
+    Dtype* R_bottom_data = bottom[i]->mutable_cpu_inc_data();
+    const Dtype* bottom_data = bottom[i]->cpu_data();
+    for(int j = 0; j < bottom[i]->count(); j++) {
+        R_bottom_data[j] += top_data[j] / bottom_data[j] * R_top_data[j];
+    }
+  }
+}
+
+// template <typename Dtype>
+// void EltwiseLayer<Dtype>::RHvBackward_cpu(const vector<Blob<Dtype>*>& top,
+//     const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom) {
+//   
+// }
+
 #ifdef CPU_ONLY
 STUB_GPU(EltwiseLayer);
 #endif

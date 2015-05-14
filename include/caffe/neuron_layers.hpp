@@ -331,6 +331,14 @@ class PowerLayer : public NeuronLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
+  
+  virtual void RvForward_cpu(const vector<Blob<Dtype>*>& bottom,
+    vector<Blob<Dtype>*>* top);
+  virtual void RGvBackward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom);
+  virtual void RHvBackward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, vector<Blob<Dtype>*>& bottom);
+
   /// @brief @f$ \gamma @f$ from layer_param_.power_param()
   Dtype power_;
   /// @brief @f$ \alpha @f$ from layer_param_.power_param()
